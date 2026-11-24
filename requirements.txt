@@ -1,0 +1,6 @@
+yt-dlp
+faster-whisper
+anthropic
+pyyaml
+requests
+numpy

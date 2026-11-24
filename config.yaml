@@ -1,0 +1,57 @@
+# ============================================================
+#  Clip pipeline settings — edit the values on the right.
+# ============================================================
+
+# --- Where files go ---
+work_folder: work          # downloads, transcripts, chat (one subfolder per VOD)
+output_folder: output      # finished clips for you to review
+
+# --- Stage 1: download ---
+video_quality: 720         # max video height to download (Kick VODs top out at 720)
+
+# --- Stage 2: transcription ---
+whisper_model: small       # tiny / base / small / medium  (bigger = more accurate, slower)
+whisper_language: en       # set to null to auto-detect
+
+# --- Stage 3: finding chat spikes ---
+window_seconds: 10         # chat is counted in chunks of this many seconds
+top_spikes: 15             # how many of the busiest moments to send to Claude
+min_gap_seconds: 90        # spikes closer together than this count as one moment
+emote_weight: 2.0          # an emote-spam message counts this many times a normal one
+emotes:                    # words/emotes that count as hype (not case-sensitive).
+                           # Kick emotes match if their name ENDS with one of these,
+                           # e.g. "collectiblesW" counts as W, "emojiDead" counts as Dead.
+  - W
+  - DEAD
+  - CRYING
+  - ICANT
+  - LMFAO
+  - KEKW
+  - LUL
+  - LMAO
+  - LOL
+  - OMEGALUL
+  - POG
+  - POGGERS
+  - PogChamp
+  - EZ
+  - L
+  - "?"
+  - "😂"
+  - "💀"
+
+# --- Stage 4: asking Claude ---
+model: claude-sonnet-5-5
+prompt_file: prompt.txt
+seconds_before_spike: 60
+seconds_after_spike: 30
+
+# --- Stage 5: making clips ---
+min_score: 7               # only clips scoring this or higher get made
+clip_width: 1080
+clip_height: 1920
+crop_mode: center          # center = zoom into the middle of the screen
+                           # blur   = whole stream in the middle, blurred copy behind it
+caption_font: Inter Display Black   # any installed font; falls back to a default if missing
+words_per_caption: 3       # how many words show on screen at once
+hook_seconds: 4            # how long the hook text stays at the top (0 = whole clip)
