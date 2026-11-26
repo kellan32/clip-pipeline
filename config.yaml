@@ -55,3 +55,33 @@ crop_mode: center          # center = zoom into the middle of the screen
 caption_font: Inter Display Black   # any installed font; falls back to a default if missing
 words_per_caption: 3       # how many words show on screen at once
 hook_seconds: 4            # how long the hook text stays at the top (0 = whole clip)
+
+
+# ============================================================
+#  YouTube training-clip pipeline (yt_clips.py) — separate from
+#  the Kick/Twitch settings above; nothing up there is used by it.
+# ============================================================
+youtube:
+  max_height: 1080         # best quality up to this height is downloaded
+  clip_count: 5            # how many clips to make (--count overrides)
+  clip_length: 60          # target clip length in seconds (--length overrides)
+  min_length: 40           # clips are never shorter than this...
+  max_length: 75           # ...or longer than this (unless you use --manual)
+  crop: smart              # smart  = follow the players (YOLO person detection)
+                           # center = plain centre crop
+  # --- picking the moments ---
+  yolo_model: yolo11n.pt   # yolo11s.pt is more accurate on far-away players but ~2.5x slower
+  analysis_yolo_every: 2   # seconds between person-detection samples when scanning the whole video
+  min_people: 2            # a drill needs at least this many players on screen
+  # --- following the action ---
+  track_fps: 5             # person-detection samples per second inside each clip
+  track_imgsz: 960         # detection resolution (bigger finds smaller players, slower)
+  max_pan_speed: 0.12      # fastest the crop may pan, in screen-widths per second
+  dead_zone: 0.05          # ignore action shifts smaller than this (screen widths): stops jitter
+  # --- output quality ---
+  width: 1080
+  height: 1920
+  crf: 18                  # lower = sharper and bigger files (17-20 is sensible)
+  preset: slow             # x264 speed/efficiency: medium is ~2x faster, slightly bigger files
+  max_fps: 60
+  loudness: -14            # target loudness in LUFS (TikTok/Reels/Shorts level)
