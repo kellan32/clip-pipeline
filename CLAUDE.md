@@ -15,12 +15,16 @@ ffmpeg must be installed. No ANTHROPIC_API_KEY is needed: Claude (you) does the 
 2. **Stage 1 + 2 in parallel.** Run `python3 -u stage1_download.py <link>` in the background, logging to a file.
    As soon as its log shows "Downloading chat", start `python3 -u stage2_transcribe.py <folder id>` in the
    background too (it only needs audio.wav). Folder id = `kick_` + first 8 chars of the VOD id.
-3. **Stage 3:** `python3 stage3_spikes.py <folder id>` → `work/<id>/spikes.json` (top 15 chat spikes).
+3. **Stage 3:** `python3 stage3_spikes.py <folder id>` → `work/<id>/spikes.json` (top 15 spikes). Scores chat
+   activity, hype words, "clip it"/"viral" messages (`clip_phrases` in config.yaml), and on Twitch the clips viewers
+   made of the stream (stage 1 saves them to `viewer_clips.json` with view counts; more views = bigger bonus).
 4. **Stage 4: score the moments yourself (no API).** For each spike, read the transcript from 60 s before to
    30 s after, plus a sample of chat, and judge it by the rules in `prompt.txt`. Write
    `work/<id>/analysis.json` in the same format stage4_analyze.py produces (keyed by spike time as a string:
    clippable, score, start_seconds, end_seconds, reason, hook_text, caption, spike_time). Check the cut points
    against transcript word timings so clips start just before the setup and end just after the payoff.
+   When a spike has `viewer_clips`, that's where viewers saw the moment: make sure the cut covers the viewer
+   clip's range (start → start+duration), and treat high view counts as strong evidence the moment works.
    Score down bits built on ethnic stereotypes or sexual jokes (they get flagged on TikTok).
    If the user wants more clips, look at spikes beyond the top 15.
 5. **Stage 5:** the user's preference is **raw 9:16 clips with no captions or hook burned in**, plus 2–3 hook

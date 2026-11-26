@@ -39,6 +39,19 @@ emotes:                    # words/emotes that count as hype (not case-sensitive
   - "?"
   - "😂"
   - "💀"
+clip_call_weight: 5.0      # a message telling someone to clip it counts this many times a normal one
+clip_phrases:              # messages containing any of these (whole words, not case-sensitive)
+  - clip                   # "clip", "clip it", "clip that", "W clip", "bad clip"...
+  - clips
+  - clipped
+  - clipping
+  - clip it
+  - clip that
+  - clip this
+  - viral
+  - going viral
+  - tiktok
+viewer_clip_weight: 20     # Twitch: bonus for each clip a viewer made of a moment (grows with its views)
 
 # --- Stage 4: asking Claude ---
 model: claude-sonnet-5-5

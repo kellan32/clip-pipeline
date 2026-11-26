@@ -3,6 +3,7 @@
 Usage:  python3 stage1_download.py <VOD link>
 """
 import datetime as dt
+import re
 import subprocess
 import sys
 import time
@@ -208,6 +209,90 @@ def download_twitch_chat(info, folder):
     return messages
 
 
+def twitch_gql(session, query, variables):
+    """One Twitch GraphQL request with a few retries. Returns the "data" part."""
+    for attempt in range(5):
+        try:
+            r = session.post(TWITCH_GQL, json={"query": query, "variables": variables}, timeout=20)
+            r.raise_for_status()
+            body = r.json()
+            if body.get("errors"):
+                raise requests.RequestException(body["errors"][0].get("message"))
+            return body["data"]
+        except (requests.RequestException, ValueError) as e:
+            print(f"\n  Network hiccup ({e}), retrying...")
+            time.sleep(3 * (attempt + 1))
+    return None
+
+
+CLIP_FIELDS = "slug title viewCount durationSeconds videoOffsetSeconds video { id }"
+CHANNEL_CLIPS_QUERY = """
+query($login: String!, $period: ClipsPeriod, $cursor: Cursor) {
+  user(login: $login) {
+    clips(first: 100, after: $cursor, criteria: {period: $period, sort: VIEWS_DESC}) {
+      edges { cursor node { %s } }
+      pageInfo { hasNextPage }
+    }
+  }
+}""" % CLIP_FIELDS
+CLIP_BY_SLUG_QUERY = "query($slug: ID!) { clip(slug: $slug) { %s } }" % CLIP_FIELDS
+CLIP_LINK_RE = re.compile(r"(?:clips\.twitch\.tv/|twitch\.tv/[^/\s]+/clip/)([A-Za-z0-9_-]+)")
+
+
+def download_twitch_viewer_clips(info, folder, chat):
+    """Find the clips viewers made of this VOD, with their view counts.
+
+    Viewer clips are the strongest sign a moment landed: someone cared enough to clip it,
+    and the view count shows how far it spread. Two sources: the channel's most-viewed
+    clips, and clip links people pasted in chat.
+    """
+    clips_path = folder / "viewer_clips.json"
+    if clips_path.exists():
+        print("Viewer clips already fetched, skipping.")
+        return load_json(clips_path)
+    print("Looking up clips viewers made of this stream...")
+    vod = str(info["id"]).lstrip("v")
+    session = requests.Session()
+    session.headers.update({"Client-ID": TWITCH_CLIENT_ID, "Content-Type": "text/plain;charset=UTF-8"})
+    found = {}
+
+    def keep(node):
+        if node and (node.get("video") or {}).get("id") == vod and node.get("videoOffsetSeconds") is not None:
+            found[node["slug"]] = {
+                "start": node["videoOffsetSeconds"], "duration": node["durationSeconds"],
+                "views": node["viewCount"], "title": node["title"], "slug": node["slug"]}
+
+    data = twitch_gql(session, "query($id: ID!) { video(id: $id) { owner { login } } }", {"id": vod})
+    login = (((data or {}).get("video") or {}).get("owner") or {}).get("login")
+    if login:
+        age_days = (time.time() - info["timestamp"]) / 86400
+        period = "LAST_WEEK" if age_days < 6 else "LAST_MONTH" if age_days < 29 else "ALL_TIME"
+        cursor = None
+        for _ in range(15):  # up to 1,500 of the channel's top clips
+            data = twitch_gql(session, CHANNEL_CLIPS_QUERY, {"login": login, "period": period, "cursor": cursor})
+            clips = ((data or {}).get("user") or {}).get("clips")
+            if not clips or not clips["edges"]:
+                break
+            for e in clips["edges"]:
+                keep(e["node"])
+            cursor = clips["edges"][-1]["cursor"]
+            if not clips["pageInfo"]["hasNextPage"] or not cursor:
+                break
+            time.sleep(0.5)
+
+    linked = {m for msg in chat for m in CLIP_LINK_RE.findall(msg["text"])} - set(found)
+    for slug in list(linked)[:300]:
+        data = twitch_gql(session, CLIP_BY_SLUG_QUERY, {"slug": slug})
+        keep((data or {}).get("clip"))
+        time.sleep(0.3)
+
+    clips = sorted(found.values(), key=lambda c: -c["views"])
+    save_json(clips_path, clips)
+    print(f"  Found {len(clips)} viewer clips of this stream"
+          + (f" (top one: {clips[0]['views']} views)" if clips else ""))
+    return clips
+
+
 def main():
     if len(sys.argv) != 2:
         raise SystemExit("Usage: python3 stage1_download.py <VOD link>")
@@ -222,6 +307,7 @@ def main():
         chat = download_kick_chat(info, folder)
     else:
         chat = download_twitch_chat(info, folder)
+        viewer_clips = download_twitch_viewer_clips(info, folder, chat)
 
     size_mb = (folder / "video.mp4").stat().st_size / 1e6
     busiest = max(range(0, int(info["duration"]), 60),
@@ -231,6 +317,8 @@ def main():
     print(f"  Length:     {hms(info['duration'])}")
     print(f"  Video:      {size_mb:.0f} MB")
     print(f"  Chat:       {len(chat)} messages from {len({m['user'] for m in chat})} chatters")
+    if not info["extractor"].startswith("kick"):
+        print(f"  Viewer clips: {len(viewer_clips)}")
     print(f"  Busiest minute of chat starts at {hms(busiest)}")
     print(f"  Saved in:   {folder}")
     print(f"  Folder ID for next stages: {vod_id}")
