@@ -38,5 +38,5 @@ exactly `DING 25%` (etc.), and send a push notification if you have a tool for i
 
 ## Known issues
 - yt-dlp needs `compat_opts: {"no-certifi"}` behind the session's HTTPS proxy (already set in stage1).
-- Twitch chat download isn't built yet (video works).
+- Twitch chat uses the unofficial GraphQL endpoint with the public client ID yt-dlp uses (user approved). Folder id = `twitch_` + VOD number.
 - Kick rate-limits chat: keep the 1 request/second pacing.

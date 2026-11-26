@@ -121,6 +121,90 @@ def download_kick_chat(info, folder):
     partial_path.unlink(missing_ok=True)
     return messages
 
+TWITCH_GQL = "https://gql.twitch.tv/gql"
+# Twitch has no official API for VOD chat replay; this is the public client ID yt-dlp uses.
+TWITCH_CLIENT_ID = "ue6666qo983tsx6so1t0vnawi233wa"
+TWITCH_COMMENTS_QUERY = """
+query($id: ID!, $offset: Int, $cursor: Cursor) {
+  video(id: $id) {
+    comments(contentOffsetSeconds: $offset, after: $cursor) {
+      edges { cursor node { contentOffsetSeconds commenter { login } message { fragments { text } } } }
+      pageInfo { hasNextPage }
+    }
+  }
+}"""
+
+
+def download_twitch_chat(info, folder):
+    """Page through a Twitch VOD's chat replay (about 1 request per second)."""
+    chat_path = folder / "chat.json"
+    if chat_path.exists():
+        print("Chat already downloaded, skipping.")
+        return load_json(chat_path)
+
+    partial_path = folder / "chat.partial.json"
+    if partial_path.exists():  # resume an interrupted download
+        p = load_json(partial_path)
+        messages, cursor = p["messages"], p["next"]
+        print(f"Resuming chat download ({len(messages)} messages so far)...")
+    else:
+        messages, cursor = [], None
+        print("Downloading chat (about 1 request per second)...")
+    vod = str(info["id"]).lstrip("v")
+    session = requests.Session()
+    session.headers.update({"Client-ID": TWITCH_CLIENT_ID, "Content-Type": "text/plain;charset=UTF-8"})
+    requests_since_save = 0
+    while True:
+        variables = {"id": vod, "cursor": cursor} if cursor else {"id": vod, "offset": 0}
+        for attempt in range(8):
+            try:
+                r = session.post(TWITCH_GQL, json={"query": TWITCH_COMMENTS_QUERY, "variables": variables},
+                                 timeout=20)
+                if r.status_code == 429:
+                    wait = 15 * (attempt + 1)
+                    print(f"\n  Twitch asked us to slow down, waiting {wait}s...")
+                    time.sleep(wait)
+                    continue
+                r.raise_for_status()
+                body = r.json()
+                if body.get("errors"):
+                    raise requests.RequestException(body["errors"][0].get("message"))
+                comments = body["data"]["video"]["comments"]
+                break
+            except (requests.RequestException, KeyError, TypeError, ValueError) as e:
+                print(f"\n  Network hiccup ({e}), retrying...")
+                time.sleep(5 * (attempt + 1))
+        else:
+            save_json(partial_path, {"messages": messages, "next": cursor})
+            raise SystemExit("Chat download kept failing. "
+                             "Progress is saved: run the same command again to resume.")
+        if comments is None:
+            break  # VOD has no chat replay
+        edges = comments["edges"] or []
+        for e in edges:
+            n = e["node"]
+            messages.append({
+                "t": float(n["contentOffsetSeconds"]),
+                "user": (n.get("commenter") or {}).get("login", "?"),
+                "text": "".join(f.get("text", "") for f in n["message"]["fragments"]),
+            })
+        if edges:
+            cursor = edges[-1]["cursor"]
+            done = edges[-1]["node"]["contentOffsetSeconds"] / info["duration"]
+            print(f"\r  {min(done, 1):.0%}  ({len(messages)} messages)", end="", flush=True)
+        if not comments["pageInfo"]["hasNextPage"] or not edges or not cursor:
+            break
+        requests_since_save += 1
+        if requests_since_save >= 25:
+            save_json(partial_path, {"messages": messages, "next": cursor})
+            requests_since_save = 0
+        time.sleep(1.0)
+    print()
+    messages.sort(key=lambda m: m["t"])
+    save_json(chat_path, messages)
+    partial_path.unlink(missing_ok=True)
+    return messages
+
 
 def main():
     if len(sys.argv) != 2:
@@ -135,7 +219,7 @@ def main():
     if info["extractor"].startswith("kick"):
         chat = download_kick_chat(info, folder)
     else:
-        raise SystemExit("Twitch chat download isn't built yet — Kick only for now.")
+        chat = download_twitch_chat(info, folder)
 
     size_mb = (folder / "video.mp4").stat().st_size / 1e6
     busiest = max(range(0, int(info["duration"]), 60),
