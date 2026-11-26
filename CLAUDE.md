@@ -10,8 +10,8 @@ pip install -q -r requirements.txt
 ffmpeg must be installed. No ANTHROPIC_API_KEY is needed: Claude (you) does the scoring in-session.
 
 ## Workflow
-1. **Check the VOD length first** and give a time estimate: about 20–25 min per hour of stream
-   (chat download ≈ 12 min/hour; transcription ≈ 16 min/hour on 4 CPUs).
+1. **Check the VOD length first** and give a time estimate: Kick about 20–25 min per hour of stream, Twitch about 13–15 min per hour
+   (Kick chat ≈ 12 min/hour, Twitch chat ≈ 8–9 min/hour; transcription ≈ 10–16 min/hour on 4 CPUs).
 2. **Stage 1 + 2 in parallel.** Run `python3 -u stage1_download.py <link>` in the background, logging to a file.
    As soon as its log shows "Downloading chat", start `python3 -u stage2_transcribe.py <folder id>` in the
    background too (it only needs audio.wav). Folder id = `kick_` + first 8 chars of the VOD id.
