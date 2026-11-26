@@ -25,6 +25,8 @@ def download_video(url, folder, cfg):
         "noprogress": True,
         # Use the system certificate store (needed behind HTTPS proxies with their own CA).
         "compat_opts": {"no-certifi"},
+        # Download HLS streams with yt-dlp itself (works reliably behind the session proxy).
+        "external_downloader": {"m3u8": "native"},
     }
     with yt_dlp.YoutubeDL(opts) as ydl:
         if video_path.exists() and info_path.exists():
