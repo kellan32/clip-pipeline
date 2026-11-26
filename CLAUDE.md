@@ -24,7 +24,8 @@ ffmpeg must be installed. No ANTHROPIC_API_KEY is needed: Claude (you) does the 
    Score down bits built on ethnic stereotypes or sexual jokes (they get flagged on TikTok).
    If the user wants more clips, look at spikes beyond the top 15.
 5. **Stage 5:** the user's preference is **raw 9:16 clips with no captions or hook burned in**, plus 2–3 hook
-   ideas per clip written in chat. Cut with:
+   ideas per clip written in chat. Hooks are clipper-style: plain, lowercase-ish captions that name who and say what happens
+   (e.g. "jasontheween reacts to woes hair transplant", "lacy tells chat to stop glazing him"), not clickbait titles. Cut with:
    `ffmpeg -ss START -i work/<id>/video.mp4 -t LEN -vf "crop=ih*9/16:ih,scale=1080:1920,setsar=1" -c:v libx264 -preset veryfast -crf 20 -c:a aac -b:a 160k -movflags +faststart output/<id>/no_text/clip_NN_name.mp4`
    (`python3 stage5_render.py <id>` makes the captioned versions if they ask for those.)
    Grab a frame from each clip and look at it to check the people are in frame; if they're cut off, offer
