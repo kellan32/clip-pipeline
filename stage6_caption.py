@@ -11,6 +11,10 @@ Usage:
   python3 stage6_caption.py <id> --transcripts        print each clip's words (to help write titles)
   python3 stage6_caption.py <id>                      caption every clip that has a title
   python3 stage6_caption.py <id> clip_01_falls_in_pool --title "LACY falls in the pool"
+  python3 stage6_caption.py <id> --speakers           check which clips get coloured voices (no render)
+
+Speaker colours (speaker_colors in config.yaml): the main voice stays white, other voices are
+green / yellow. Only used when the voices are easy to tell apart; otherwise everything stays white.
 """
 import os
 import re
@@ -25,6 +29,14 @@ from common import ROOT, banner, load_config, load_json, save_json
 from stage5_render import ass_escape, ass_time
 
 
+def load_audio(clip):
+    """16 kHz mono samples. Decoded with ffmpeg ourselves (faster-whisper's own loader
+    clashes with the installed PyAV)."""
+    raw = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", str(clip), "-f", "s16le", "-ac", "1",
+                          "-ar", "16000", "-"], capture_output=True, check=True).stdout
+    return np.frombuffer(raw, np.int16).astype(np.float32) / 32768.0
+
+
 def transcribe(clip, cache, cfg, model_box):
     """Word-level transcript of one clip (cached so re-runs are quick)."""
     if cache.exists() and cache.stat().st_mtime >= clip.stat().st_mtime:
@@ -33,11 +45,7 @@ def transcribe(clip, cache, cfg, model_box):
         from faster_whisper import WhisperModel
         print(f"  Loading Whisper '{cfg['whisper_model']}' model...")
         model_box.append(WhisperModel(cfg["whisper_model"], device="cpu", compute_type="int8"))
-    # Decode with ffmpeg ourselves (faster-whisper's own loader clashes with the installed PyAV).
-    raw = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", str(clip), "-f", "s16le", "-ac", "1",
-                          "-ar", "16000", "-"], capture_output=True, check=True).stdout
-    audio = np.frombuffer(raw, np.int16).astype(np.float32) / 32768.0
-    segments, _ = model_box[0].transcribe(audio, language=cfg.get("whisper_language"),
+    segments, _ = model_box[0].transcribe(load_audio(clip), language=cfg.get("whisper_language"),
                                           word_timestamps=True)
     words = []
     for s in segments:
@@ -77,11 +85,13 @@ def censor(text):
 
 
 def group_words(words, max_words):
-    """Split words into 2-3 word chunks, breaking early at pauses and sentence ends."""
+    """Split words into 2-3 word chunks, breaking early at pauses, sentence ends and
+    when a different person starts talking."""
     groups, cur = [], []
     for w in words:
         if cur and (len(cur) >= max_words or w["start"] - cur[-1]["end"] > 0.5
-                    or cur[-1]["word"][-1] in ".?!,"):
+                    or cur[-1]["word"][-1] in ".?!,"
+                    or w.get("speaker") != cur[-1].get("speaker")):
             groups.append(cur)
             cur = []
         cur.append(w)
@@ -130,7 +140,14 @@ def write_ass(path, words, title, length, cfg):
         text = " ".join(x["word"] for x in g).upper()
         if cfg.get("censor_curses", True):
             text = censor(text)
-        lines.append(f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Cap,,0,0,0,,{ass_escape(text)}")
+        spk = g[0].get("speaker") or 0
+        if spk:
+            colors = cfg.get("speaker_color_list", ["00FF00", "FFFF00"])
+            rgb = colors[(spk - 1) % len(colors)]
+            text = f"{{\\c&H{rgb[4:6]}{rgb[2:4]}{rgb[0:2]}&}}" + ass_escape(text)
+        else:
+            text = ass_escape(text)
+        lines.append(f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Cap,,0,0,0,,{text}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return len(groups)
 
@@ -143,6 +160,7 @@ def main():
         title_arg = args[i + 1]
         del args[i:i + 2]
     show = "--transcripts" in args
+    check_speakers = "--speakers" in args
     args = [a for a in args if not a.startswith("--")]
     if not args:
         raise SystemExit(__doc__)
@@ -173,6 +191,19 @@ def main():
             print(f"\n== {clip.stem}  (title: {titles.get(clip.stem, 'none yet')})")
             print("   " + " ".join(w["word"] for w in words))
             continue
+        if not show and cfg.get("speaker_colors", True):
+            from speakers import label_speakers
+            labels, why = label_speakers(load_audio(clip), words, cfg)
+            for w, lab in zip(words, labels or [None] * len(words)):
+                w["speaker"] = lab
+            print(f"  {clip.stem}: voice colours {'ON' if labels else 'off'} ({why})")
+            if check_speakers:
+                if labels:
+                    print("     " + " ".join(("" if w["speaker"] == 0 else f"[{w['speaker']}]")
+                                             + w["word"] for w in words))
+                continue
+        elif check_speakers:
+            raise SystemExit("speaker_colors is off in config.yaml")
         title = titles.get(clip.stem)
         if not title:
             missing.append(clip.stem)
@@ -189,7 +220,7 @@ def main():
         subs.unlink()
         made.append(out)
 
-    if show:
+    if show or check_speakers:
         return
     banner("STAGE 6 DONE — captioned clips")
     for out in made:

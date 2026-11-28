@@ -4,3 +4,4 @@ anthropic
 pyyaml
 requests
 numpy
+sherpa-onnx

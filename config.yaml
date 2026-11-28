@@ -69,3 +69,10 @@ caption_font: Inter Display Black   # any installed font; falls back to a defaul
 words_per_caption: 3       # how many words show on screen at once
 hook_seconds: 4            # how long the hook text stays at the top (0 = whole clip)
 censor_curses: true       # stage 6: star one vowel in curse words in captions/titles (F*CK, SH*T)
+
+# --- Stage 6: voice colours in captions ---
+speaker_colors: true       # main voice white, anyone else green, ONLY when it's easy to tell them apart
+speaker_color_list: [00FF00]   # colour for the other voice (RGB hex)
+speaker_main_threshold: 0.45   # a line must match the main voice at least this well to stay white
+speaker_other_threshold: 0.20  # ...or match it at most this well to turn green
+speaker_max_unsure: 0.05   # if more than 5% of the talking is in between, no colours for that clip
