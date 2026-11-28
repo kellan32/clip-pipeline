@@ -6,6 +6,8 @@ Streamers to watch are listed in config.yaml under watch_streamers, e.g.
 Usage:
   python3 watch.py                 check everyone; prints one line per streamer
   python3 watch.py --done <link>   mark a VOD as handled so it isn't picked up again
+  python3 watch.py --quiet         prints QUIET during the user's sleep hours (no push notifications
+                                   then), otherwise AWAKE. Set by quiet_hours / timezone in config.yaml.
 
 Each line starts with one of:
   READY <vod link>   the stream ended, the VOD is finished, and it hasn't been clipped yet
@@ -77,7 +79,21 @@ def check_kick(slug):
         (f"https://kick.com/{slug}/videos/{v['video']['uuid']}", ended)
 
 
+def is_quiet(cfg):
+    """True during the user's sleep hours (quiet_hours: "22:00-08:00" in their timezone)."""
+    from zoneinfo import ZoneInfo
+    span = cfg.get("quiet_hours")
+    if not span:
+        return False
+    a, b = [datetime.strptime(x.strip(), "%H:%M").time() for x in span.split("-")]
+    now = datetime.now(ZoneInfo(cfg.get("timezone", "America/New_York"))).time()
+    return (a <= now or now < b) if a > b else (a <= now < b)
+
+
 def main():
+    if "--quiet" in sys.argv:
+        print("QUIET" if is_quiet(load_config()) else "AWAKE")
+        return
     state = load_json(STATE) if STATE.exists() else {"done": []}
     if "--done" in sys.argv:
         link = sys.argv[sys.argv.index("--done") + 1]

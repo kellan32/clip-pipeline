@@ -85,3 +85,7 @@ speaker_max_unsure: 0.05   # if more than 5% of the talking is in between, no co
 watch_streamers:           # site:name — twitch:... or kick:...
   - twitch:stableronaldo
 watch_max_age_hours: 12    # only auto-clip streams that ended within this many hours
+
+# --- Notifications ---
+timezone: America/New_York   # your time zone (e.g. America/Chicago, America/Los_Angeles)
+quiet_hours: "22:00-08:00"   # no phone notifications between these times (clips still get made)

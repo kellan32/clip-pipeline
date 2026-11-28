@@ -52,7 +52,7 @@ wakes this session and runs `python3 watch.py`:
 - `LIVE` / `NOTHING` / `ERROR` lines: nothing to do; end the turn quietly (no message, no push) unless an ERROR
   repeats, then tell the user once.
 - `READY <link>`: run `python3 watch.py --done <link>` first (so the next check doesn't start it twice), send a
-  push that clipping has started, then do the full workflow above for that link: progress DINGs, 5–10 clips,
+  push that clipping has started (unless quiet hours, see below), then do the full workflow above for that link: progress DINGs, 5–10 clips,
   hooks, suggested titles, and captioned versions (stage 6) alongside the raw clips.
   If the session's container was replaced, reinstall first (`pip install -q -r requirements.txt`).
 To stop: remove the streamer from `watch_streamers`, or ask Claude to turn off the scheduled task.
@@ -61,6 +61,9 @@ To stop: remove the streamer from `watch_streamers`, or ask Claude to turn off t
 Track overall progress (video 5%, chat 40%, transcription 35%, finding moments 12%, cutting clips 8%).
 Use a background monitor so you wake at each quarter mark. At 25/50/75/100% post a message whose first line is
 exactly `DING 25%` (etc.), and send a push notification if you have a tool for it.
+**Quiet hours:** before every push notification run `python3 watch.py --quiet`. If it prints QUIET (the user's
+sleep hours, `quiet_hours` / `timezone` in config.yaml, currently 10pm–8am Eastern), don't push: still post the
+DING messages and send the files in chat, so everything is waiting when they wake up.
 
 ## Known issues
 - yt-dlp needs `compat_opts: {"no-certifi"}` behind the session's HTTPS proxy (already set in stage1).
