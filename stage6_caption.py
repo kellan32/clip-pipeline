@@ -1,7 +1,7 @@
 """Stage 6: add word-by-word captions and a title bar to the cut clips.
 
 Takes the raw clips in output/<id>/no_text/, transcribes each one, burns in captions
-(2-3 words at a time, middle of the frame) and a title bar at the top, and saves the result
+(2-3 words at a time, near the bottom of the frame) and a title bar at the top, and saves the result
 in output/<id>/ready/. The raw clips are left untouched.
 
 Titles come from output/<id>/titles.json, e.g. {"clip_01_falls_in_pool": "LACY falls in the pool"}.
@@ -109,6 +109,10 @@ def clip_length(clip):
 def write_ass(path, words, title, length, cfg):
     w, h = 1080, 1920
     font = cfg.get("caption_font", "Inter")
+    if cfg.get("caption_position", "bottom") == "middle":
+        cap_align, cap_margin = 5, 0
+    else:
+        cap_align, cap_margin = 2, int(h * cfg.get("caption_bottom_margin", 0.22))
     lines = [
         "[Script Info]", "ScriptType: v4.00+", f"PlayResX: {w}", f"PlayResY: {h}",
         "WrapStyle: 0", "",
@@ -119,9 +123,10 @@ def write_ass(path, words, title, length, cfg):
         # Title bar: black text on a white box, top centre, whole clip.
         f"Style: Title,{font},{cfg.get('title_size', 62)},&H00000000,&H00000000,&H00FFFFFF,"
         f"&H00FFFFFF,1,0,0,0,100,100,0,0,3,22,0,8,70,70,{int(h * 0.09)},1",
-        # Captions: bold white, thick black outline, dead centre (middle third).
+        # Captions: bold white, thick black outline. Bottom of the frame, raised just above
+        # where TikTok/Shorts put their caption text and buttons (caption_position in config.yaml).
         f"Style: Cap,{font},{cfg.get('caption_size', 96)},&H00FFFFFF,&H00FFFFFF,&H00000000,"
-        f"&H80000000,1,0,0,0,100,100,2,0,1,8,3,5,70,70,0,1",
+        f"&H80000000,1,0,0,0,100,100,2,0,1,8,3,{cap_align},70,70,{cap_margin},1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",

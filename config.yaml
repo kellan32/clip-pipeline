@@ -70,6 +70,10 @@ words_per_caption: 3       # how many words show on screen at once
 hook_seconds: 4            # how long the hook text stays at the top (0 = whole clip)
 censor_curses: true       # stage 6: star one vowel in curse words in captions/titles (F*CK, SH*T)
 
+# --- Stage 6: caption position ---
+caption_position: bottom   # bottom or middle
+caption_bottom_margin: 0.22   # how far up from the bottom edge (0.22 = 22% of the height, clear of TikTok's buttons/text)
+
 # --- Stage 6: voice colours in captions ---
 speaker_colors: true       # main voice white, anyone else green, ONLY when it's easy to tell them apart
 speaker_color_list: [00FF00]   # colour for the other voice (RGB hex)
