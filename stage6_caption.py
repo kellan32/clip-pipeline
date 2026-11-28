@@ -13,6 +13,7 @@ Usage:
   python3 stage6_caption.py <id> clip_01_falls_in_pool --title "LACY falls in the pool"
 """
 import os
+import re
 import subprocess
 import sys
 
@@ -50,6 +51,29 @@ def transcribe(clip, cache, cfg, model_box):
                               "word": w.word.strip()})
     save_json(cache, words)
     return words
+
+
+# Curse words get one vowel swapped for "*", like TV does it: F*CK, SH*T, B*TCH.
+# Each pattern matches the curse part of a word (so "motherfucker" -> "MOTHERF*CKER");
+# the first vowel inside the match is starred. Slurs get every vowel starred.
+CURSES = [
+    r"fuck", r"shit", r"bitch", r"cunt", r"pussy", r"whore", r"slut", r"bastard",
+    r"\bpiss(?:ed|ing)?\b", r"\bdick(?:s|head|heads)?\b", r"\bcock(?:s|sucker)?\b",
+    r"\bass(?:es|hole|holes)?\b", r"(?<=dumb)ass\b", r"(?<=jack)ass\b", r"(?<=smart)ass\b", r"(?<=bad)ass\b",
+]
+SLURS = [r"nigg(?:a|er)s?", r"\bfag(?:s|got|gots)?\b", r"\bretard(?:s|ed)?\b"]
+CURSE_RE = re.compile("|".join(CURSES), re.IGNORECASE)
+SLUR_RE = re.compile("|".join(SLURS), re.IGNORECASE)
+
+
+def censor(text):
+    def one_vowel(m):
+        w = m.group(0)
+        if w.lower().startswith("a"):      # "ass" -> "A*S" reads better than "*SS"
+            return w[0] + "*" + w[2:]
+        return re.sub(r"[aeiouAEIOU]", "*", w, count=1)
+    text = SLUR_RE.sub(lambda m: re.sub(r"[aeiouAEIOU]", "*", m.group(0)), text)
+    return CURSE_RE.sub(one_vowel, text)
 
 
 def group_words(words, max_words):
@@ -91,7 +115,8 @@ def write_ass(path, words, title, length, cfg):
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
-        f"Dialogue: 1,{ass_time(0)},{ass_time(length)},Title,,0,0,0,,{ass_escape(title)}",
+        f"Dialogue: 1,{ass_time(0)},{ass_time(length)},Title,,0,0,0,,"
+        f"{ass_escape(censor(title) if cfg.get('censor_curses', True) else title)}",
     ]
     groups = group_words(words, cfg.get("caption_words", 3))
     for i, g in enumerate(groups):
@@ -103,6 +128,8 @@ def write_ass(path, words, title, length, cfg):
         if end <= start:
             continue
         text = " ".join(x["word"] for x in g).upper()
+        if cfg.get("censor_curses", True):
+            text = censor(text)
         lines.append(f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Cap,,0,0,0,,{ass_escape(text)}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return len(groups)

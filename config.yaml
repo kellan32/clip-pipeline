@@ -68,3 +68,4 @@ crop_mode: center          # center = zoom into the middle of the screen
 caption_font: Inter Display Black   # any installed font; falls back to a default if missing
 words_per_caption: 3       # how many words show on screen at once
 hook_seconds: 4            # how long the hook text stays at the top (0 = whole clip)
+censor_curses: true       # stage 6: star one vowel in curse words in captions/titles (F*CK, SH*T)
