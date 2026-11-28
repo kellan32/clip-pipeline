@@ -34,7 +34,17 @@ ffmpeg must be installed. No ANTHROPIC_API_KEY is needed: Claude (you) does the 
    (`python3 stage5_render.py <id>` makes the captioned versions if they ask for those.)
    Grab a frame from each clip and look at it to check the people are in frame; if they're cut off, offer
    `crop_mode: blur` or a shifted crop.
-6. Send the clips to the user as files, with a short table: time in stream, what happens, hook ideas.
+6. **Stage 6: captions + title** (`stage6_caption.py`), run after the clips are cut. It transcribes each clip
+   in `output/<id>/no_text/` with faster-whisper (word timings), burns in word-by-word captions (bold white,
+   black outline, 2–3 words at a time, middle of the frame) and a title bar at the top for the whole clip,
+   and saves to `output/<id>/ready/` (raw clips are kept). Titles live in `output/<id>/titles.json`
+   (`{"clip_01_name": "title"}`). For each clip, ask the user for a title or suggest one from the transcript
+   (`python3 stage6_caption.py <id> --transcripts` prints each clip's words). Title style: name WHO and WHAT
+   happened, plainly: "[STREAMER] [does specific thing] [where/with who]", e.g.
+   "TBANKS breaks art in Jason The Ween's rental". No clickbait ("he didn't expect this", "you'll never guess").
+   Then run `python3 stage6_caption.py <id>` (or one clip: `... <id> clip_01_name --title "..."`).
+   Only do this for clips the user wants captioned; don't redo clips already delivered unless asked.
+7. Send the clips to the user as files, with a short table: time in stream, what happens, hook ideas.
 
 ## Progress updates
 Track overall progress (video 5%, chat 40%, transcription 35%, finding moments 12%, cutting clips 8%).
