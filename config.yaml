@@ -80,3 +80,8 @@ speaker_color_list: [00FF00]   # colour for the other voice (RGB hex)
 speaker_main_threshold: 0.45   # a line must match the main voice at least this well to stay white
 speaker_other_threshold: 0.20  # ...or match it at most this well to turn green
 speaker_max_unsure: 0.05   # if more than 5% of the talking is in between, no colours for that clip
+
+# --- Auto-run: watch streamers and clip their stream when it ends (watch.py) ---
+watch_streamers:           # site:name — twitch:... or kick:...
+  - twitch:stableronaldo
+watch_max_age_hours: 12    # only auto-clip streams that ended within this many hours

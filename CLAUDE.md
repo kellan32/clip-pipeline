@@ -46,6 +46,17 @@ ffmpeg must be installed. No ANTHROPIC_API_KEY is needed: Claude (you) does the 
    Only do this for clips the user wants captioned; don't redo clips already delivered unless asked.
 7. Send the clips to the user as files, with a short table: time in stream, what happens, hook ideas.
 
+## Auto-run when a stream ends (`watch.py`)
+Streamers to watch are in config.yaml `watch_streamers` (`twitch:name` / `kick:name`). An hourly scheduled task
+wakes this session and runs `python3 watch.py`:
+- `LIVE` / `NOTHING` / `ERROR` lines: nothing to do; end the turn quietly (no message, no push) unless an ERROR
+  repeats, then tell the user once.
+- `READY <link>`: run `python3 watch.py --done <link>` first (so the next check doesn't start it twice), send a
+  push that clipping has started, then do the full workflow above for that link: progress DINGs, 5–10 clips,
+  hooks, suggested titles, and captioned versions (stage 6) alongside the raw clips.
+  If the session's container was replaced, reinstall first (`pip install -q -r requirements.txt`).
+To stop: remove the streamer from `watch_streamers`, or ask Claude to turn off the scheduled task.
+
 ## Progress updates
 Track overall progress (video 5%, chat 40%, transcription 35%, finding moments 12%, cutting clips 8%).
 Use a background monitor so you wake at each quarter mark. At 25/50/75/100% post a message whose first line is
